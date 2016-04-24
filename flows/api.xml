@@ -1,0 +1,480 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:sfdc="http://www.mulesoft.org/schema/mule/sfdc" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/apikit" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:spring="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/apikit http://www.mulesoft.org/schema/mule/apikit/current/mule-apikit.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.1.xsd
+http://www.mulesoft.org/schema/mule/sfdc http://www.mulesoft.org/schema/mule/sfdc/current/mule-sfdc.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd">
+
+    <flow name="api-main">
+        <http:listener config-ref="api-httpListenerConfig" path="/api/*" doc:name="HTTP"/>
+        <apikit:router config-ref="api-config" doc:name="APIkit Router"/>
+        <exception-strategy ref="api-apiKitGlobalExceptionMapping" doc:name="Reference Exception Strategy"/>
+    </flow>
+    <flow name="get:/player:api-config">
+        <sfdc:query config-ref="Salesforce__Basic_Authentication" query="dsql:SELECT Id,Name,atg_gameroom__Active__c,atg_gameroom__Email__c,atg_gameroom__External_Id__c,atg_gameroom__Highest_Match_Score__c,atg_gameroom__Lowest_Match_Score__c,atg_gameroom__Matches_Lost__c,atg_gameroom__Matches_Won__c,atg_gameroom__Player_Created_Date__c,atg_gameroom__Screen_Name__c,atg_gameroom__Total_Matches_Played__c FROM atg_gameroom__Player__c" doc:name="SFDC Get Players"/>
+        <dw:transform-message doc:name="Players to JSON">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+matches: payload map {
+  id: $.Id,
+  name: $.Name,
+  type: $.type,
+  game: $.atg_gameroom__Game__c,
+  numberOfPlayers: $.atg_gameroom__Number_of_Players__c as  :number unless $.atg_gameroom__Number_of_Players__c==null otherwise 0,
+  lowestScore: $.atg_gameroom__Lowest_Score__c as  :number unless $.atg_gameroom__Lowest_Score__c==null otherwise 0,
+  highestScore: $.atg_gameroom__Highest_Score__c as  :number unless $.atg_gameroom__Highest_Score__c==null otherwise 0,
+  scoreRecordedDate: $.atg_gameroom__Score_Recorded_Date__c as :string,
+  externalId: $.atg_gameroom__External_Id__c,
+  playerMatches: $.atg_gameroom__PlayerMatches__r map {
+    playerMatchId: $.Id,
+    name: $.Name,
+    type: $.type,
+    player: $.atg_gameroom__Player__c,
+    pointsScored: $.atg_gameroom__Points_Scored__c as  :number unless $.atg_gameroom__Points_Scored__c==null otherwise 0,
+    handicap: $.atg_gameroom__Handicap__c as  :number unless $.atg_gameroom__Handicap__c==null otherwise 0,
+    wonMatch: $.atg_gameroom__Won_Match__c as :boolean,
+    lostMatch: $.atg_gameroom__Lost_Match__c as :boolean,
+    externalId: $.atg_gameroom__External_Id__c,
+    player: {
+      active: $.atg_gameroom__Player__r.atg_gameroom__Active__c as :boolean,
+      highestMatchScore: $.atg_gameroom__Player__r.atg_gameroom__Highest_Match_Score__c as  :number unless $.atg_gameroom__Player__r==null otherwise 0,
+      matchesWon: $.atg_gameroom__Player__r.atg_gameroom__Matches_Won__c as  :number unless $.atg_gameroom__Player__r==null otherwise 0,
+      screenName: $.atg_gameroom__Player__r.atg_gameroom__Screen_Name__c,
+      email: $.atg_gameroom__Player__r.atg_gameroom__Email__c,
+      matchesLost: $.atg_gameroom__Player__r.atg_gameroom__Matches_Lost__c as  :number unless $.atg_gameroom__Player__r==null otherwise 0,
+      id: $.atg_gameroom__Player__r.Id,
+      type: $.atg_gameroom__Player__r.type,
+      externalId: $.atg_gameroom__Player__r.atg_gameroom__External_Id__c,
+      playerCreatedDate: $.atg_gameroom__Player__r.atg_gameroom__Player_Created_Date__c as :string,
+      totalMatchesPlayed: $.atg_gameroom__Player__r.atg_gameroom__Total_Matches_Played__c as  :number unless $.atg_gameroom__Player__r==null otherwise 0,
+      lowestMatchScore: $.atg_gameroom__Player__r.atg_gameroom__Lowest_Match_Score__c as  :number} unless $.atg_gameroom__Player__r==null otherwise 0
+    }
+  }]]></dw:set-payload>
+        </dw:transform-message>
+    </flow>
+    <flow name="get:/player/{playerId}:api-config">
+        <sfdc:query config-ref="Salesforce__Basic_Authentication" query="dsql:SELECT Id,Name,atg_gameroom__Active__c,atg_gameroom__Email__c,atg_gameroom__External_Id__c,atg_gameroom__Highest_Match_Score__c,atg_gameroom__Lowest_Match_Score__c,atg_gameroom__Matches_Lost__c,atg_gameroom__Matches_Won__c,atg_gameroom__Player_Created_Date__c,atg_gameroom__Screen_Name__c,atg_gameroom__Total_Matches_Played__c FROM atg_gameroom__Player__c WHERE Id = '#[flowVars.playerId]' LIMIT 1" doc:name="SFDC Get Player"/>
+        <dw:transform-message metadata:id="58701a8c-87b5-4042-bac1-6f1b4453cf92" doc:name="Player to JSON">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+    id: payload[0].Id,
+    name: payload[0].Name,
+    screenName: payload[0].atg_gameroom__Screen_Name__c,
+    email: payload[0].atg_gameroom__Email__c,
+    created: payload[0].atg_gameroom__Player_Created_Date__c as :string,
+    active: payload[0].atg_gameroom__Active__c as :boolean,
+    highestMatchScore: payload[0].atg_gameroom__Highest_Match_Score__c as :number unless payload[0].atg_gameroom__Highest_Match_Score__c==null otherwise 0,
+    lowestMatchScore: payload[0].atg_gameroom__Lowest_Match_Score__c as :number unless payload[0].atg_gameroom__Lowest_Match_Score__c==null otherwise 0,
+    machesWon: payload[0].atg_gameroom__Matches_Won__c as :number unless payload[0].atg_gameroom__Matches_Won__c==null otherwise 0,
+    matchesLost: payload[0].atg_gameroom__Matches_Lost__c as :number unless payload[0].atg_gameroom__Matches_Lost__c==null otherwise 0,
+    totalMatchesPlayed: payload[0].atg_gameroom__Total_Matches_Played__c as :number unless payload[0].atg_gameroom__Total_Matches_Played__c==null otherwise 0,
+    extId: payload[0].atg_gameroom__External_Id__c
+}]]></dw:set-payload>
+        </dw:transform-message>
+    </flow>
+    <flow name="post:/player:application/json:api-config">
+        <set-variable variableName="extId" value="#[atggameroom.AtgGameroomService.getExtId()]" doc:name="Set External Id"/>
+        <set-variable variableName="currDate" value="#[atggameroom.AtgGameroomService.getCurrentDate()  ]" doc:name="Set Curr Date"/>
+        <logger message="#['payload: ' + payload]" level="INFO" doc:name="Logger"/>
+        <dw:transform-message doc:name="Prepare Player">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+[{
+  Name: payload.name,
+  atg_gameroom__Active__c: true,
+  atg_gameroom__Email__c: payload.email,
+  atg_gameroom__Screen_Name__c: payload.screenName,
+  atg_gameroom__External_Id__c: flowVars.extId,
+  atg_gameroom__Player_Created_Date__c: flowVars.currDate
+}]]]></dw:set-payload>
+        </dw:transform-message>
+        <sfdc:create config-ref="Salesforce__Basic_Authentication" type="atg_gameroom__Player__c" doc:name="Create Player"/>
+        <logger message="#['\n\nID' +payload[0].id+' \n\n\nCreate player result: ' + payload]" level="INFO" doc:name="Logger"/>
+        <choice doc:name="Is save success?">
+            <when expression="payload[0].success">
+                <sfdc:query config-ref="Salesforce__Basic_Authentication" query="dsql:SELECT Id,Name,atg_gameroom__Active__c,atg_gameroom__Email__c,atg_gameroom__External_Id__c,atg_gameroom__Highest_Match_Score__c,atg_gameroom__Lowest_Match_Score__c,atg_gameroom__Matches_Lost__c,atg_gameroom__Matches_Won__c,atg_gameroom__Player_Created_Date__c,atg_gameroom__Screen_Name__c,atg_gameroom__Total_Matches_Played__c FROM atg_gameroom__Player__c WHERE Id = '#[payload[0].id]' LIMIT 1" doc:name="Retreive SFDC Player"/>
+                <dw:transform-message doc:name="Player to JSON">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+    id: payload[0].Id,
+    name: payload[0].Name,
+    screenName: payload[0].atg_gameroom__Screen_Name__c,
+    email: payload[0].atg_gameroom__Email__c,
+    created: payload[0].atg_gameroom__Player_Created_Date__c as :string,
+    active: payload[0].atg_gameroom__Active__c as :boolean,
+    highestMatchScore: payload[0].atg_gameroom__Highest_Match_Score__c as :number unless payload[0].atg_gameroom__Highest_Match_Score__c==null otherwise 0,
+    lowestMatchScore: payload[0].atg_gameroom__Lowest_Match_Score__c as :number unless payload[0].atg_gameroom__Lowest_Match_Score__c==null otherwise 0,
+    machesWon: payload[0].atg_gameroom__Matches_Won__c as :number unless payload[0].atg_gameroom__Matches_Won__c==null otherwise 0,
+    matchesLost: payload[0].atg_gameroom__Matches_Lost__c as :number unless payload[0].atg_gameroom__Matches_Lost__c==null otherwise 0,
+    totalMatchesPlayed: payload[0].atg_gameroom__Total_Matches_Played__c as :number unless payload[0].atg_gameroom__Total_Matches_Played__c==null otherwise 0,
+    extId: payload[0].atg_gameroom__External_Id__c
+}]]></dw:set-payload>
+                </dw:transform-message>
+            </when>
+            <otherwise>
+                <set-property propertyName="http.status" value="500" doc:name="Property"/>
+                <dw:transform-message doc:name="Set error message">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+  "errorMessage": "Could not save player.",
+  "errors": payload[0].errors
+}]]></dw:set-payload>
+                </dw:transform-message>
+            </otherwise>
+        </choice>
+    </flow>
+    <flow name="put:/player/{playerId}:application/json:api-config">
+        <set-payload value="{
+  &quot;id&quot;: &quot;12ds45gdfgfd12&quot;,
+  &quot;name&quot;: &quot;Austin Turner&quot;,
+  &quot;screenName&quot;: &quot;jhonny@test.com&quot;,
+  &quot;email&quot;: &quot;myEmail&quot;,
+  &quot;created&quot;: &quot;2016-04-16T19:49:11.151Z&quot;,
+  &quot;active&quot;: true
+}" doc:name="Set Payload"/>
+
+    </flow>
+    <flow name="get:/match:api-config">
+        <sfdc:query config-ref="Salesforce__Basic_Authentication" query="SELECT id,
+Name,
+atg_gameroom__External_Id__c,
+atg_gameroom__Game__c,
+atg_gameroom__Highest_Score__c,
+atg_gameroom__Lowest_Score__c,
+atg_gameroom__Number_of_Players__c,
+atg_gameroom__Score_Recorded_Date__c,
+(
+  SELECT Id,
+  Name,
+  atg_gameroom__External_Id__c,
+  atg_gameroom__Handicap__c,
+  atg_gameroom__Lost_Match__c,
+  atg_gameroom__Match__c,
+  atg_gameroom__Player__c,
+  atg_gameroom__Points_Scored__c,
+  atg_gameroom__Won_Match__c,
+  atg_gameroom__Player__r.atg_gameroom__Active__c,
+  atg_gameroom__Player__r.atg_gameroom__Email__c,
+  atg_gameroom__Player__r.atg_gameroom__External_Id__c,
+  atg_gameroom__Player__r.atg_gameroom__Highest_Match_Score__c,
+  atg_gameroom__Player__r.atg_gameroom__Lowest_Match_Score__c,
+  atg_gameroom__Player__r.atg_gameroom__Matches_Lost__c,
+  atg_gameroom__Player__r.atg_gameroom__Matches_Won__c,
+  atg_gameroom__Player__r.atg_gameroom__Player_Created_Date__c,
+  atg_gameroom__Player__r.atg_gameroom__Screen_Name__c,
+  atg_gameroom__Player__r.atg_gameroom__Total_Matches_Played__c
+  FROM atg_gameroom__PlayerMatches__r
+)
+FROM atg_gameroom__Match__c" doc:name="SFDC Get Matches"/>
+        <dw:transform-message metadata:id="574e9dc5-7eb8-42b5-a0cd-8e37595f3ffa" doc:name="Matches to  JSON">
+            <dw:input-payload doc:sample="json.json"/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+matches: payload map {
+  id: $.Id,
+  name: $.Name,
+  type: $.type,
+  game: $.atg_gameroom__Game__c,
+  numberOfPlayers: $.atg_gameroom__Number_of_Players__c as  :number unless $.atg_gameroom__Number_of_Players__c==null otherwise 0,
+  lowestScore: $.atg_gameroom__Lowest_Score__c as  :number unless $.atg_gameroom__Lowest_Score__c==null otherwise 0,
+  highestScore: $.atg_gameroom__Highest_Score__c as  :number unless $.atg_gameroom__Highest_Score__c==null otherwise 0,
+  scoreRecordedDate: $.atg_gameroom__Score_Recorded_Date__c as :string,
+  externalId: $.atg_gameroom__External_Id__c,
+  playerMatches: $.atg_gameroom__PlayerMatches__r map {
+    playerMatchId: $.Id,
+    name: $.Name,
+    type: $.type,
+    player: $.atg_gameroom__Player__c,
+    pointsScored: $.atg_gameroom__Points_Scored__c as  :number unless $.atg_gameroom__Points_Scored__c==null otherwise 0,
+    handicap: $.atg_gameroom__Handicap__c as  :number unless $.atg_gameroom__Handicap__c==null otherwise 0,
+    wonMatch: $.atg_gameroom__Won_Match__c as :boolean,
+    lostMatch: $.atg_gameroom__Lost_Match__c as :boolean,
+    externalId: $.atg_gameroom__External_Id__c,
+    player: {
+      active: $.atg_gameroom__Player__r.atg_gameroom__Active__c as :boolean,
+      highestMatchScore: $.atg_gameroom__Player__r.atg_gameroom__Highest_Match_Score__c as  :number unless $.atg_gameroom__Player__r==null otherwise 0,
+      matchesWon: $.atg_gameroom__Player__r.atg_gameroom__Matches_Won__c as  :number unless $.atg_gameroom__Player__r==null otherwise 0,
+      screenName: $.atg_gameroom__Player__r.atg_gameroom__Screen_Name__c,
+      email: $.atg_gameroom__Player__r.atg_gameroom__Email__c,
+      matchesLost: $.atg_gameroom__Player__r.atg_gameroom__Matches_Lost__c as  :number unless $.atg_gameroom__Player__r==null otherwise 0,
+      id: $.atg_gameroom__Player__r.Id,
+      type: $.atg_gameroom__Player__r.type,
+      externalId: $.atg_gameroom__Player__r.atg_gameroom__External_Id__c,
+      playerCreatedDate: $.atg_gameroom__Player__r.atg_gameroom__Player_Created_Date__c as :string,
+      totalMatchesPlayed: $.atg_gameroom__Player__r.atg_gameroom__Total_Matches_Played__c as  :number unless $.atg_gameroom__Player__r==null otherwise 0,
+      lowestMatchScore: $.atg_gameroom__Player__r.atg_gameroom__Lowest_Match_Score__c as  :number} unless $.atg_gameroom__Player__r==null otherwise 0
+    }
+  }]]></dw:set-payload>
+        </dw:transform-message>
+
+    </flow>
+
+    <flow name="get:/match/{matchId}:api-config">
+        <logger message="#['Match id: ' + flowVars.matchId]" level="INFO" doc:name="Logger"/>
+        <sfdc:query config-ref="Salesforce__Basic_Authentication" query="SELECT id,
+Name,
+atg_gameroom__External_Id__c,
+atg_gameroom__Game__c,
+atg_gameroom__Highest_Score__c,
+atg_gameroom__Lowest_Score__c,
+atg_gameroom__Number_of_Players__c,
+atg_gameroom__Score_Recorded_Date__c,
+(
+  SELECT Id,
+  Name,
+  atg_gameroom__External_Id__c,
+  atg_gameroom__Handicap__c,
+  atg_gameroom__Lost_Match__c,
+  atg_gameroom__Match__c,
+  atg_gameroom__Player__c,
+  atg_gameroom__Points_Scored__c,
+  atg_gameroom__Won_Match__c,
+  atg_gameroom__Player__r.atg_gameroom__Active__c,
+  atg_gameroom__Player__r.atg_gameroom__Email__c,
+  atg_gameroom__Player__r.atg_gameroom__External_Id__c,
+  atg_gameroom__Player__r.atg_gameroom__Highest_Match_Score__c,
+  atg_gameroom__Player__r.atg_gameroom__Lowest_Match_Score__c,
+  atg_gameroom__Player__r.atg_gameroom__Matches_Lost__c,
+  atg_gameroom__Player__r.atg_gameroom__Matches_Won__c,
+  atg_gameroom__Player__r.atg_gameroom__Player_Created_Date__c,
+  atg_gameroom__Player__r.atg_gameroom__Screen_Name__c,
+  atg_gameroom__Player__r.atg_gameroom__Total_Matches_Played__c
+  FROM atg_gameroom__PlayerMatches__r
+)
+FROM atg_gameroom__Match__c WHERE Id = '#[flowVars.matchId]'" doc:name="SFDC Get Match"/>
+
+        <logger message="#['After SFDC return: flow vars:' + flowVars + ' payload: ' + payload]" level="INFO" doc:name="Logger"/>        <dw:transform-message metadata:id="574e9dc5-7eb8-42b5-a0cd-8e37595f3ffa" doc:name="Match to JSON">
+            <dw:input-payload doc:sample="json.json"/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+  id: payload[0].Id,
+  name: payload[0].Name,
+  type: payload[0].type,
+  game: payload[0].atg_gameroom__Game__c,
+  numberOfPlayers: payload[0].atg_gameroom__Number_of_Players__c as :number unless payload[0].atg_gameroom__Number_of_Players__c==null otherwise 0,
+  lowestScore: payload[0].atg_gameroom__Lowest_Score__c as :number unless payload[0].atg_gameroom__Lowest_Score__c==null otherwise 0,
+  highestScore: payload[0].atg_gameroom__Highest_Score__c as :number unless payload[0].atg_gameroom__Highest_Score__c==null otherwise 0,
+  scoreRecordedDate: payload[0].atg_gameroom__Score_Recorded_Date__c as :string,
+  externalId: payload[0].atg_gameroom__External_Id__c,
+  playerMatches: payload[0].atg_gameroom__PlayerMatches__r map {
+    playerMatchId: $.Id,
+    name: $.Name,
+    type: $.type,
+    player: $.atg_gameroom__Player__c,
+    pointsScored: $.atg_gameroom__Points_Scored__c as :number unless $.atg_gameroom__Points_Scored__c==null otherwise 0,
+    handicap: $.atg_gameroom__Handicap__c as :number unless $.atg_gameroom__Handicap__c==null otherwise 0,
+    wonMatch: $.atg_gameroom__Won_Match__c as :boolean,
+    lostMatch: $.atg_gameroom__Lost_Match__c as :boolean,
+    externalId: $.atg_gameroom__External_Id__c,
+    player: {
+      active: $.atg_gameroom__Player__r.atg_gameroom__Active__c as :boolean,
+      highestMatchScore: $.atg_gameroom__Player__r.atg_gameroom__Highest_Match_Score__c as :number unless $.atg_gameroom__Player__r.atg_gameroom__Highest_Match_Score__c==null otherwise 0,
+      matchesWon: $.atg_gameroom__Player__r.atg_gameroom__Matches_Won__c as :number unless $.atg_gameroom__Player__r.atg_gameroom__Matches_Won__c==null otherwise 0,
+      screenName: $.atg_gameroom__Player__r.atg_gameroom__Screen_Name__c,
+      email: $.atg_gameroom__Player__r.atg_gameroom__Email__c,
+      matchesLost: $.atg_gameroom__Player__r.atg_gameroom__Matches_Lost__c as :number unless $.atg_gameroom__Player__r.atg_gameroom__Matches_Lost__c==null otherwise 0,
+      id: $.atg_gameroom__Player__r.Id,
+      type: $.atg_gameroom__Player__r.type,
+      externalId: $.atg_gameroom__Player__r.atg_gameroom__External_Id__c,
+      playerCreatedDate: $.atg_gameroom__Player__r.atg_gameroom__Player_Created_Date__c as :string,
+      totalMatchesPlayed: $.atg_gameroom__Player__r.atg_gameroom__Total_Matches_Played__c as :number unless $.atg_gameroom__Player__r.atg_gameroom__Total_Matches_Played__c==null otherwise 0,
+      lowestMatchScore: $.atg_gameroom__Player__r.atg_gameroom__Lowest_Match_Score__c as :number unless $.atg_gameroom__Player__r.atg_gameroom__Lowest_Match_Score__c==null otherwise 0
+    }
+  }
+}]]></dw:set-payload>
+        </dw:transform-message>
+
+    </flow>
+
+    <flow name="post:/match:application/json:api-config">
+        <logger message="#['PAYLOAD: ' + payload]" level="INFO" doc:name="Logger"/>
+        <dw:transform-message metadata:id="a4a09bce-aaca-4c32-b6e0-76c7213188be" doc:name="Set Match and Player Matches">
+            <dw:input-payload doc:sample="json_3.json"/>
+            <dw:set-variable variableName="match"><![CDATA[%dw 1.0
+%output application/java
+---
+[{
+  atg_gameroom__Game__c: payload.Game
+}]]]></dw:set-variable>
+            <dw:set-variable variableName="playerMatches"><![CDATA[%dw 1.0
+%output application/java
+---
+payload.playerMatches map {
+  atg_gameroom__Player__c: $.playerId,
+  atg_gameroom__Handicap__c: $.handicap,
+  atg_gameroom__Points_Scored__c: $.pointsScored
+}]]></dw:set-variable>
+        </dw:transform-message>
+        <sfdc:create config-ref="Salesforce__Basic_Authentication" type="atg_gameroom__Match__c" doc:name="Create Match">
+            <sfdc:objects ref="#[flowVars.match]"/>
+        </sfdc:create>
+        <logger message="#['Match Result: ' + payload]" level="INFO" doc:name="Logger"/>
+        <choice doc:name="match save success?">
+            <when expression="payload[0].success">
+                <set-variable variableName="matchId" value="#[payload[0].id]" doc:name="setMatch Id"/>
+                <dw:transform-message doc:name="Update Player Matches with Match Id">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+flowVars.playerMatches map {
+  atg_gameroom__Player__c: $.atg_gameroom__Player__c,
+  atg_gameroom__Match__c: flowVars.matchId,
+  atg_gameroom__Handicap__c: $.atg_gameroom__Handicap__c,
+  atg_gameroom__Points_Scored__c: $.atg_gameroom__Points_Scored__c
+}]]></dw:set-payload>
+                </dw:transform-message>
+                <sfdc:create config-ref="Salesforce__Basic_Authentication" type="atg_gameroom__PlayerMatch__c" doc:name="Create Player Matches">
+                    <sfdc:objects ref="#[payload]"/>
+                </sfdc:create>
+                <logger message="#['Player MAtch Result CREATED: ' + payload]" level="INFO" doc:name="Copy_of_Logger"/>
+                <choice doc:name="player match save success?">
+                    <when expression="payload[0].success">
+                        <sfdc:query config-ref="Salesforce__Basic_Authentication" query="SELECT id,
+Name,
+atg_gameroom__External_Id__c,
+atg_gameroom__Game__c,
+atg_gameroom__Highest_Score__c,
+atg_gameroom__Lowest_Score__c,
+atg_gameroom__Number_of_Players__c,
+atg_gameroom__Score_Recorded_Date__c,
+(
+  SELECT Id,
+  Name,
+  atg_gameroom__External_Id__c,
+  atg_gameroom__Handicap__c,
+  atg_gameroom__Lost_Match__c,
+  atg_gameroom__Match__c,
+  atg_gameroom__Player__c,
+  atg_gameroom__Points_Scored__c,
+  atg_gameroom__Won_Match__c,
+  atg_gameroom__Player__r.atg_gameroom__Active__c,
+  atg_gameroom__Player__r.atg_gameroom__Email__c,
+  atg_gameroom__Player__r.atg_gameroom__External_Id__c,
+  atg_gameroom__Player__r.atg_gameroom__Highest_Match_Score__c,
+  atg_gameroom__Player__r.atg_gameroom__Lowest_Match_Score__c,
+  atg_gameroom__Player__r.atg_gameroom__Matches_Lost__c,
+  atg_gameroom__Player__r.atg_gameroom__Matches_Won__c,
+  atg_gameroom__Player__r.atg_gameroom__Player_Created_Date__c,
+  atg_gameroom__Player__r.atg_gameroom__Screen_Name__c,
+  atg_gameroom__Player__r.atg_gameroom__Total_Matches_Played__c
+  FROM atg_gameroom__PlayerMatches__r
+)
+FROM atg_gameroom__Match__c WHERE Id = '#[flowVars.matchId]'" doc:name="Get Match By Id"/>
+                        <dw:transform-message metadata:id="cb3c8017-d14a-4834-9cec-25531be7221a" doc:name="Transform Message">
+                            <dw:input-payload doc:sample="json_4.json"/>
+                            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+  id: payload[0].Id,
+  name: payload[0].Name,
+  type: payload[0].type,
+  game: payload[0].atg_gameroom__Game__c,
+  numberOfPlayers: payload[0].atg_gameroom__Number_of_Players__c as :number unless payload[0].atg_gameroom__Number_of_Players__c==null otherwise 0,
+  lowestScore: payload[0].atg_gameroom__Lowest_Score__c as :number unless payload[0].atg_gameroom__Lowest_Score__c==null otherwise 0,
+  highestScore: payload[0].atg_gameroom__Highest_Score__c as :number unless payload[0].atg_gameroom__Highest_Score__c==null otherwise 0,
+  scoreRecordedDate: payload[0].atg_gameroom__Score_Recorded_Date__c as :string,
+  externalId: payload[0].atg_gameroom__External_Id__c,
+  playerMatches: payload[0].atg_gameroom__PlayerMatches__r map {
+    playerMatchId: $.Id,
+    name: $.Name,
+    type: $.type,
+    player: $.atg_gameroom__Player__c,
+    pointsScored: $.atg_gameroom__Points_Scored__c as :number unless $.atg_gameroom__Points_Scored__c==null otherwise 0,
+    handicap: $.atg_gameroom__Handicap__c as :number unless $.atg_gameroom__Handicap__c==null otherwise 0,
+    wonMatch: $.atg_gameroom__Won_Match__c as :boolean,
+    lostMatch: $.atg_gameroom__Lost_Match__c as :boolean,
+    externalId: $.atg_gameroom__External_Id__c,
+    player: {
+      active: $.atg_gameroom__Player__r.atg_gameroom__Active__c as :boolean,
+      highestMatchScore: $.atg_gameroom__Player__r.atg_gameroom__Highest_Match_Score__c as :number unless $.atg_gameroom__Player__r.atg_gameroom__Highest_Match_Score__c==null otherwise 0,
+      matchesWon: $.atg_gameroom__Player__r.atg_gameroom__Matches_Won__c as :number unless $.atg_gameroom__Player__r.atg_gameroom__Matches_Won__c==null otherwise 0,
+      screenName: $.atg_gameroom__Player__r.atg_gameroom__Screen_Name__c,
+      email: $.atg_gameroom__Player__r.atg_gameroom__Email__c,
+      matchesLost: $.atg_gameroom__Player__r.atg_gameroom__Matches_Lost__c as :number unless $.atg_gameroom__Player__r.atg_gameroom__Matches_Lost__c==null otherwise 0,
+      id: $.atg_gameroom__Player__r.Id,
+      type: $.atg_gameroom__Player__r.type,
+      externalId: $.atg_gameroom__Player__r.atg_gameroom__External_Id__c,
+      playerCreatedDate: $.atg_gameroom__Player__r.atg_gameroom__Player_Created_Date__c as :string,
+      totalMatchesPlayed: $.atg_gameroom__Player__r.atg_gameroom__Total_Matches_Played__c as :number unless $.atg_gameroom__Player__r.atg_gameroom__Total_Matches_Played__c==null otherwise 0,
+      lowestMatchScore: $.atg_gameroom__Player__r.atg_gameroom__Lowest_Match_Score__c as :number unless $.atg_gameroom__Player__r.atg_gameroom__Lowest_Match_Score__c==null otherwise 0
+    }
+  }
+}]]></dw:set-payload>
+                        </dw:transform-message>
+                    </when>
+                    <otherwise>
+                        <set-variable variableName="playerMatchErrors" value="#[payload[0].errors]" doc:name="Set Player Matches Error"/>
+                        <sfdc:delete config-ref="Salesforce__Basic_Authentication" doc:name="Delete Created Match">
+                            <sfdc:ids ref="#[[flowVars.matchId]]"/>
+                        </sfdc:delete>
+                        <dw:transform-message doc:name="Set Error Message">
+                            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+  "errorMessage": "Could not save player matches. Match record deleted.",
+  "errors": flowVars.playerMatchErrors
+}]]></dw:set-payload>
+                        </dw:transform-message>
+                    </otherwise>
+                </choice>
+            </when>
+            <otherwise>
+                <dw:transform-message doc:name="Set Error Message">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+  "errorMessage": "Could not save match.",
+  "errors": payload[0].errors
+}]]></dw:set-payload>
+                </dw:transform-message>
+            </otherwise>
+        </choice>
+
+    </flow>
+
+
+    <apikit:mapping-exception-strategy name="api-apiKitGlobalExceptionMapping">
+        <apikit:mapping statusCode="404">
+            <apikit:exception value="org.mule.module.apikit.exception.NotFoundException" />
+            <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+            <set-payload value="{ &quot;message&quot;: &quot;Resource not found&quot; }" doc:name="Set Payload"/>
+        </apikit:mapping>
+        <apikit:mapping statusCode="405">
+            <apikit:exception value="org.mule.module.apikit.exception.MethodNotAllowedException" />
+            <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+            <set-payload value="{ &quot;message&quot;: &quot;Method not allowed&quot; }" doc:name="Set Payload"/>
+        </apikit:mapping>
+        <apikit:mapping statusCode="415">
+            <apikit:exception value="org.mule.module.apikit.exception.UnsupportedMediaTypeException" />
+            <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+            <set-payload value="{ &quot;message&quot;: &quot;Unsupported media type&quot; }" doc:name="Set Payload"/>
+        </apikit:mapping>
+        <apikit:mapping statusCode="406">
+            <apikit:exception value="org.mule.module.apikit.exception.NotAcceptableException" />
+            <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+            <set-payload value="{ &quot;message&quot;: &quot;Not acceptable&quot; }" doc:name="Set Payload"/>
+        </apikit:mapping>
+        <apikit:mapping statusCode="400">
+            <apikit:exception value="org.mule.module.apikit.exception.BadRequestException" />
+            <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+            <set-payload value="{ &quot;message&quot;: &quot;Bad request&quot; }" doc:name="Set Payload"/>
+        </apikit:mapping>
+    </apikit:mapping-exception-strategy>
+</mule>
